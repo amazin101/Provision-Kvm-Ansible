@@ -1,0 +1,24 @@
+# 02_prepare_image.yml
+---
+- name: Prepare Base QCOW2 Image
+  hosts: targets
+  become: yes
+  vars_files:
+    - vars/vm_settings.yml
+  vars:
+    base_image_url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+    base_image_filename: "ubuntu-base.qcow2"
+    temp_path: "/tmp/{{ base_image_filename }}"
+
+  tasks:
+    - name: Download the base cloud image to /tmp
+      ansible.builtin.get_url:
+        url: "{{ base_image_url }}"
+        dest: "{{ temp_path }}"
+        mode: '0644'
+
+    - name: Move the image to the libvirt storage pool
+      ansible.builtin.command:
+        cmd: "mv {{ temp_path }} {{ base_image_path }}"
+        creates: "{{ base_image_path }}"
+      # base_image_path is loaded from vars/vm_settings.yml

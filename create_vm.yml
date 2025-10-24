@@ -1,0 +1,68 @@
+---
+- name: Provision New KVM Virtual Machine
+  hosts: targets
+  become: yes
+  vars_files:
+    - vars/vm_settings.yml
+
+  tasks:
+    - name:  Clone the base QCOW2 image to create the new VM disk
+      ansible.builtin.command:
+        cmd: "qemu-img create -f qcow2 -b {{ base_image_path }} {{ new_disk_path }}"
+        creates: "{{ new_disk_path }}"
+      args:
+        chdir: /var/lib/libvirt/images/
+
+    - name: Ensure temporary netplan directory exists on KVM host
+      ansible.builtin.file:
+        path: /tmp/netplan
+        state: directory
+        mode: '0755'
+
+    - name: Create Netplan configuration file on KVM host
+      ansible.builtin.copy:
+        dest: /tmp/netplan/99-custom.yaml
+        content: |
+          network:
+            version: 2
+            renderer: networkd
+            ethernets:
+              enp1s0:
+                dhcp4: true
+                optional: true
+
+    - name: Inject Netplan configuration into VM image
+      ansible.builtin.command:
+        cmd: >
+          virt-customize -a {{ new_disk_path }}
+          --copy-in /tmp/netplan/99-custom.yaml:/etc/netplan/
+          --run-command "netplan apply"
+
+    - name: Copy local SSH public key to the KVM host's /tmp
+      ansible.builtin.copy:
+        src: "{{ local_ssh_public_key_file }}"
+        dest: "{{ remote_key_dest }}"
+        mode: '0644'
+
+    - name: Customize the disk image (Set hostname and inject SSH key from file)
+      ansible.builtin.command:
+        cmd: >
+          virt-customize -a {{ new_disk_path }}
+          --hostname {{ vm_name }}
+          --ssh-inject root:file:{{ remote_key_dest }}  
+          --root-password password:TempP@ss123
+
+    - name: 3. Define and Start the VM using virt-install
+      ansible.builtin.command:
+        cmd: >
+          virt-install
+          --name {{ vm_name }}
+          --memory {{ vm_memory_mb }}
+          --vcpus {{ vm_cpus }}
+          --disk path={{ new_disk_path }},format=qcow2,bus=virtio
+          --import
+          --os-variant {{ vm_os_variant }}
+          --network bridge={{ vm_bridge }},model=virtio
+          --noautoconsole
+          --wait 0
+        creates: "/etc/libvirt/qemu/{{ vm_name }}.xml"

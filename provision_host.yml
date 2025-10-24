@@ -1,0 +1,42 @@
+---
+- name: Install KVM on Ubuntu and CentOS hosts
+  hosts: targets
+  become: yes
+  tasks:
+    - name: Install KVM and related packages on Ubuntu
+      apt:
+        name:
+          - qemu-kvm
+          - libvirt-daemon-system
+          - libvirt-clients
+          - bridge-utils
+          - virt-manager
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install KVM and related packages on CentOS
+      yum:
+        name:
+          - qemu-kvm
+          - libvirt
+          - python3-libvirt
+          - libguestfs-tools
+          - virt-install
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Enable and start libvirtd service
+      service:
+        name: libvirtd
+        state: started
+        enabled: yes
+    - name: Add group libvirt
+      ansible.builtin.group:
+        name: libvirt
+        state: present
+    - name: Add current Ansible user to libvirt group
+      ansible.builtin.user:
+        name: ansibleuser
+        groups: libvirt
+        append: yes
+      

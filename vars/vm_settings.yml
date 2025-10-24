@@ -1,0 +1,15 @@
+---
+# vars/vm_settings.yml (Standardized Variables)
+vm_name: "web-server-01"
+vm_memory_mb: 2048
+vm_cpus: 2
+vm_bridge: "virbr0"
+base_image_path: "/var/lib/libvirt/images/ubuntu-base.qcow2"
+new_disk_path: "/var/lib/libvirt/images/{{ vm_name }}.qcow2"
+vm_os_variant: "ubuntu20.04"
+
+# Variables for SSH Key Injection (using the reliable copy method)
+# This is the local path on your Ansible control machine:
+local_ssh_public_key_file: "/home/ansible/.ssh/id_ed25519.pub"
+# This is the temporary path on the remote KVM host:
+remote_key_dest: "/tmp/{{ vm_name }}_id_ed25519.pub"
